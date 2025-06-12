@@ -40,7 +40,8 @@ export default function Dashboard() {
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-gray-900 to-indigo-900 flex flex-col font-press-start overflow-hidden">
       <header className="pt-2 px-4 border-b border-indigo-400/20 flex justify-between items-center">
-        <div className="text-xl font-bold text-indigo-400 tracking-wider">XLYZER</div>
+        <div className="text-xl font-bold text-indigo-400 tracking-wider">
+          <a href="/">XLYZER</a></div>
         <div className="text-xs text-indigo-400/50 tracking-wider">DASHBOARD</div>
       </header>
 

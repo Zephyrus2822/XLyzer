@@ -14,7 +14,7 @@ const Signup = () => {
     const handleSubmit = (e) => {
         e.preventDefault();
         console.log("Hello");
-        axios.post("http://localhost:5000/api/auth/signup", { name, email, password })
+        axios.post("http://localhost:5001/api/auth/signup", { name, email, password })
             .then(result => {
                 console.log(result)
                 navigate("/signin")

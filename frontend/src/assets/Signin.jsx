@@ -16,12 +16,13 @@ const Signin = () => {
     setError('')
     
     try {
-      const result = await axios.post("http://localhost:5000/api/auth/signup", { email, password })
+      const result = await axios.post("http://localhost:5001/api/auth/signin", { email, password })
       
-      if (result.data === "Success") {
-        navigate("/home")
+      if (result.data.msg === "Success") {
+        navigate("/dashboard")
       } else {
-        setError("Invalid credentials or not registered")
+        setError("Please check your credentials and try again.");
+        console.warn("Login failed:", result.data.msg);
       }
     } catch (err) {
       console.error("Login error:", err)
