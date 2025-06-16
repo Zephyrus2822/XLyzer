@@ -1,305 +1,296 @@
-import React, { useState } from 'react';
-import { LineChart, Sigma, Clock, BarChart, PieChart, Download, FileInput, X, Check, Type } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
+import {
+  LineChart,
+  Sigma,
+  Clock,
+  BarChart,
+  PieChart,
+  Download,
+  FileInput,
+  Type,
+} from "lucide-react";
+import {
+  LineChart as ReLineChart,
+  Line,
+  BarChart as ReBarChart,
+  Bar,
+  PieChart as RePieChart,
+  Pie,
+  Cell,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
+const TABS = {
+  visualize: { icon: LineChart },
+  data: { icon: FileInput },
+  stats: { icon: Sigma },
+  history: { icon: Clock },
+};
+
+const GRAPH_TYPES = {
+  line: { icon: LineChart },
+  bar: { icon: BarChart },
+  pie: { icon: PieChart },
+};
 
 export default function Dashboard() {
-  const [fileUploaded, setFileUploaded] = useState(false);
-  const [activeTab, setActiveTab] = useState('visualize');
-  const [graphType, setGraphType] = useState('line');
+  const [fileUploaded, setFileUploaded] = useState(() => sessionStorage.getItem("fileUploaded") === "true");
+  const [activeTab, setActiveTab] = useState("visualize");
+  const [graphType, setGraphType] = useState(() => sessionStorage.getItem("graphType") || "line");
   const [isProcessing, setIsProcessing] = useState(false);
   const [file, setFile] = useState(null);
   const [error, setError] = useState(null);
-
-  // Sample statistics data
-  const [stats, setStats] = useState({
-    mean: 0.0,
-    median: 0.0,
-    mode: 0.0,
-    min: 0.0,
-    max: 0.0,
-    stdDev: 0.0
+  const [sheetData, setSheetData] = useState(() => {
+    const saved = sessionStorage.getItem("sheetData");
+    return saved ? JSON.parse(saved) : [];
   });
+  const [columns, setColumns] = useState(() => {
+    const saved = sessionStorage.getItem("columns");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [xAxis, setXAxis] = useState(() => sessionStorage.getItem("xAxis") || "");
+  const [yAxis, setYAxis] = useState(() => sessionStorage.getItem("yAxis") || "");
 
-  
+  // Sync to sessionStorage
+  useEffect(() => sessionStorage.setItem("sheetData", JSON.stringify(sheetData)), [sheetData]);
+  useEffect(() => sessionStorage.setItem("columns", JSON.stringify(columns)), [columns]);
+  useEffect(() => sessionStorage.setItem("xAxis", xAxis), [xAxis]);
+  useEffect(() => sessionStorage.setItem("yAxis", yAxis), [yAxis]);
+  useEffect(() => sessionStorage.setItem("graphType", graphType), [graphType]);
+  useEffect(() => sessionStorage.setItem("fileUploaded", fileUploaded), [fileUploaded]);
 
   const handleFileUpload = (e) => {
-    const selectedFile = e.target.files[0];
-    if (!selectedFile) return;
-
-    setFile(selectedFile);
+    const selected = e.target.files[0];
+    if (!selected) return;
+    setFile(selected);
     setIsProcessing(true);
     setError(null);
     setFileUploaded(false);
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const bstr = evt.target.result;
+      const wb = XLSX.read(bstr, { type: "binary" });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      const data = XLSX.utils.sheet_to_json(ws);
+      setSheetData(data);
+      if (data.length > 0) {
+        setColumns(Object.keys(data[0]));
+      }
+      setTimeout(() => {
+        setFileUploaded(true);
+        setIsProcessing(false);
+      }, 1000);
+    };
+    reader.readAsBinaryString(selected);
+  };
 
-    setTimeout(() => {
-      setFileUploaded(true);
-      setIsProcessing(false);
-    }, 1500);
+  const exportChart = async (format) => {
+    const chartContainer = document.getElementById("chart-wrapper");
+    if (!chartContainer) return;
+
+    const { toPng, toPdf } = await import("html-to-image");
+    const blobFn = format === "png" ? toPng : toPdf;
+    blobFn(chartContainer).then((dataUrl) => {
+      const link = document.createElement("a");
+      link.download = `chart.${format}`;
+      link.href = dataUrl;
+      link.click();
+    });
+  };
+
+  const ExportButtons = () => (
+    <div className="flex space-x-2">
+      <button
+        disabled={!fileUploaded}
+        onClick={() => exportChart("png")}
+        className="text-xs px-3 py-1 bg-indigo-400/20 border border-indigo-400/30 text-indigo-100 rounded-sm flex items-center"
+      >
+        <Download size={12} className="mr-1" /> PNG
+      </button>
+      <button
+        disabled={!fileUploaded}
+        onClick={() => exportChart("pdf")}
+        className="text-xs px-3 py-1 bg-indigo-400/20 border border-indigo-400/30 text-indigo-100 rounded-sm flex items-center"
+      >
+        <Type size={12} className="mr-1" /> PDF
+      </button>
+    </div>
+  );
+
+  const renderChart = () => {
+    if (!xAxis || !yAxis || sheetData.length === 0) return null;
+    switch (graphType) {
+      case "line":
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <ReLineChart data={sheetData}>
+              <XAxis dataKey={xAxis} />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <CartesianGrid stroke="#ccc" />
+              <Line type="monotone" dataKey={yAxis} stroke="#8884d8" />
+            </ReLineChart>
+          </ResponsiveContainer>
+        );
+      case "bar":
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <ReBarChart data={sheetData}>
+              <XAxis dataKey={xAxis} />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <CartesianGrid stroke="#ccc" />
+              <Bar dataKey={yAxis} fill="#82ca9d" />
+            </ReBarChart>
+          </ResponsiveContainer>
+        );
+      case "pie":
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <RePieChart>
+              <Pie
+                data={sheetData}
+                dataKey={yAxis}
+                nameKey={xAxis}
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                fill="#8884d8"
+              >
+                {sheetData.map((_, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={["#8884d8", "#82ca9d", "#ffc658"][index % 3]}
+                  />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </RePieChart>
+          </ResponsiveContainer>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const resetSession = () => {
+    sessionStorage.clear();
+    window.location.reload();
   };
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-gray-900 to-indigo-900 flex flex-col font-press-start overflow-hidden">
       <header className="pt-2 px-4 border-b border-indigo-400/20 flex justify-between items-center">
         <div className="text-xl font-bold text-indigo-400 tracking-wider">
-          <a href="/">XLYZER</a></div>
+          <a href="/">XLYZER</a>
+        </div>
         <div className="text-xs text-indigo-400/50 tracking-wider">DASHBOARD</div>
       </header>
-
       <main className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-16 border-r border-indigo-400/10 flex flex-col items-center py-4 space-y-6">
-          <button 
-            className={`p-2 rounded border ${activeTab === 'visualize' ? 'bg-indigo-400/20 border-indigo-400/50' : 'border-indigo-400/10'}`}
-            onClick={() => setActiveTab('visualize')}
-          >
-            <LineChart className="text-indigo-400" size={18} />
-          </button>
-          <button 
-            className={`p-2 rounded border ${activeTab === 'data' ? 'bg-indigo-400/20 border-indigo-400/50' : 'border-indigo-400/10'}`}
-            onClick={() => setActiveTab('data')}
-          >
-            <FileInput className="text-indigo-400" size={18} />
-          </button>
-          <button 
-            className={`p-2 rounded border ${activeTab === 'stats' ? 'bg-indigo-400/20 border-indigo-400/50' : 'border-indigo-400/10'}`}
-            onClick={() => setActiveTab('stats')}
-          >
-            <Sigma className="text-indigo-400" size={18} />
-          </button>
-          <button 
-            className={`p-2 rounded border ${activeTab === 'history' ? 'bg-indigo-400/20 border-indigo-400/50' : 'border-indigo-400/10'}`}
-            onClick={() => setActiveTab('history')}
-          >
-            <Clock className="text-indigo-400" size={18} />
-          </button>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Visualizing Tab */}
-          {activeTab === 'visualize' && (
+        <aside className="w-16 border-r border-indigo-400/10 flex flex-col items-center py-4 space-y-6">
+          {Object.keys(TABS).map((tab) => {
+            const Icon = TABS[tab].icon;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`p-2 rounded border ${
+                  activeTab === tab
+                    ? "bg-indigo-400/20 border-indigo-400/50"
+                    : "border-indigo-400/10"
+                }`}
+              >
+                <Icon className="text-indigo-400" size={18} />
+              </button>
+            );
+          })}
+        </aside>
+        <section className="flex-1 flex flex-col overflow-hidden">
+          {activeTab === "visualize" && (
             <div className="flex-1 flex flex-col p-4 overflow-hidden">
               <div className="flex space-x-2 mb-4">
-                <button 
-                  className={`px-3 py-1 text-xs border rounded-sm flex items-center ${graphType === 'line' ? 'bg-indigo-400/20 border-indigo-400/50 text-indigo-100' : 'border-indigo-400/10 text-indigo-400/50'}`}
-                  onClick={() => setGraphType('line')}
+                {Object.keys(GRAPH_TYPES).map((type) => {
+                  const Icon = GRAPH_TYPES[type].icon;
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => setGraphType(type)}
+                      className={`px-3 py-1 text-xs border rounded-sm flex items-center ${
+                        graphType === type
+                          ? "bg-indigo-400/20 border-indigo-400/50 text-indigo-100"
+                          : "border-indigo-400/10 text-indigo-400/50"
+                      }`}
+                    >
+                      <Icon size={14} className="mr-1" /> {type.toUpperCase()}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex space-x-2 mb-4">
+                <select
+                  className="text-xs bg-gray-800 border border-indigo-400/30 text-indigo-100 rounded-sm px-2 py-1"
+                  value={xAxis}
+                  onChange={(e) => setXAxis(e.target.value)}
                 >
-                  <LineChart size={14} className="mr-1" /> LINE
-                </button>
-                <button 
-                  className={`px-3 py-1 text-xs border rounded-sm flex items-center ${graphType === 'bar' ? 'bg-indigo-400/20 border-indigo-400/50 text-indigo-100' : 'border-indigo-400/10 text-indigo-400/50'}`}
-                  onClick={() => setGraphType('bar')}
-                >
-                  <BarChart size={14} className="mr-1" /> BAR
-                </button>
-                <button 
-                  className={`px-3 py-1 text-xs border rounded-sm flex items-center ${graphType === 'pie' ? 'bg-indigo-400/20 border-indigo-400/50 text-indigo-100' : 'border-indigo-400/10 text-indigo-400/50'}`}
-                  onClick={() => setGraphType('pie')}
-                >
-                  <PieChart size={14} className="mr-1" /> PIE
-                </button>
-              </div>
-
-              <div className="flex-1 border border-indigo-400/20 rounded-sm bg-gray-900/30 relative overflow-hidden">
-                {!fileUploaded ? (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center p-4">
-                      <FileInput className="mx-auto text-indigo-400/30 mb-2" size={24} />
-                      <p className="text-xs text-indigo-400/50 tracking-wider">UPLOAD DATA TO VISUALIZE</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center p-4">
-                    <div className="w-full h-full flex items-center justify-center border border-dashed border-indigo-400/20 rounded-sm">
-                      {graphType === 'line' && <LineChart className="text-indigo-400/30" size={48} />}
-                      {graphType === 'bar' && <BarChart className="text-indigo-400/30" size={48} />}
-                      {graphType === 'pie' && <PieChart className="text-indigo-400/30" size={48} />}
-                      <p className="absolute text-xs text-indigo-400/50 mt-16">{graphType.toUpperCase()} CHART PREVIEW</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-
-
-              {/*Action btns*/}
-              <div className="flex justify-between mt-4">
-                {graphType === 'line' && (
-                  <>
-                    <div className="relative group inline-block">
-                      <div className="absolute -inset-0.5 bg-indigo-400/30 rounded-sm blur-[2px] group-hover:blur-[3px] transition-all duration-150"></div>
-                      <button id='line-png'
-                        className="relative px-4 py-1 bg-indigo-400/10 border border-indigo-400/30 text-indigo-100 text-[10px] rounded-sm tracking-wider hover:bg-indigo-400/20 transition-all duration-150 flex items-center"
-                        disabled={!fileUploaded}
-                      >
-                        <Download className="mr-1 h-3 w-3" /> EXPORT PNG
-                      </button>
-                    </div>
-                    <div className="relative group inline-block">
-                      <div className="absolute -inset-0.5 bg-indigo-400/30 rounded-sm blur-[2px] group-hover:blur-[3px] transition-all duration-150"></div>
-                      <button id='line-pdf'
-                        className="relative px-4 py-1 bg-indigo-400/10 border border-indigo-400/30 text-indigo-100 text-[10px] rounded-sm tracking-wider hover:bg-indigo-400/20 transition-all duration-150 flex items-center"
-                        disabled={!fileUploaded}
-                      >
-                        <Type className="mr-1 h-2 w-2" /> EXPORT PDF
-                      </button>
-                    </div>
-                  </>
-                )}
-                   {graphType === 'bar' && (
-                  <>
-                    <div className="relative group inline-block">
-                      <div className="absolute -inset-0.5 bg-indigo-400/30 rounded-sm blur-[2px] group-hover:blur-[3px] transition-all duration-150"></div>
-                      <button id='bar-png'
-                        className="relative px-4 py-1 bg-indigo-400/10 border border-indigo-400/30 text-indigo-100 text-[10px] rounded-sm tracking-wider hover:bg-indigo-400/20 transition-all duration-150 flex items-center"
-                        disabled={!fileUploaded}
-                      >
-                        <Download className="mr-1 h-3 w-3" /> EXPORT PNG
-                      </button>
-                    </div>
-                    <div className="relative group inline-block">
-                      <div className="absolute -inset-0.5 bg-indigo-400/30 rounded-sm blur-[2px] group-hover:blur-[3px] transition-all duration-150"></div>
-                      <button id='bar-pdf'
-                        className="relative px-4 py-1 bg-indigo-400/10 border border-indigo-400/30 text-indigo-100 text-[10px] rounded-sm tracking-wider hover:bg-indigo-400/20 transition-all duration-150 flex items-center"
-                        disabled={!fileUploaded}
-                      >
-                        <Type className="mr-1 h-2 w-2" /> EXPORT PDF
-                      </button>
-                    </div>
-                  </>
-                )}
-                   {graphType === 'pie' && (
-                  <>
-                    <div className="relative group inline-block">
-                      <div className="absolute -inset-0.5 bg-indigo-400/30 rounded-sm blur-[2px] group-hover:blur-[3px] transition-all duration-150"></div>
-                      <button id='pie-png'
-                        className="relative px-4 py-1 bg-indigo-400/10 border border-indigo-400/30 text-indigo-100 text-[10px] rounded-sm tracking-wider hover:bg-indigo-400/20 transition-all duration-150 flex items-center"
-                        disabled={!fileUploaded}
-                      >
-                        <Download className="mr-1 h-3 w-3" /> EXPORT PNG
-                      </button>
-                    </div>
-                    <div className="relative group inline-block">
-                      <div className="absolute -inset-0.5 bg-indigo-400/30 rounded-sm blur-[2px] group-hover:blur-[3px] transition-all duration-150"></div>
-                      <button id='pie-pdf'
-                        className="relative px-4 py-1 bg-indigo-400/10 border border-indigo-400/30 text-indigo-100 text-[10px] rounded-sm tracking-wider hover:bg-indigo-400/20 transition-all duration-150 flex items-center"
-                        disabled={!fileUploaded}
-                      >
-                        <Type className="mr-1 h-2 w-2" /> EXPORT PDF
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Data Tab */}
-          {activeTab === 'data' && (
-            <div className="flex-1 flex flex-col p-4 overflow-auto">
-              <div className={`border rounded-sm p-4 mb-4 ${
-                error ? 'border-red-400/50 bg-red-900/10' : 
-                fileUploaded ? 'border-green-400/50 bg-green-900/10' : 
-                'border-indigo-400/20 bg-gray-900/30'
-              }`}>
-                <h3 className="text-xs text-indigo-400 mb-3 tracking-wider">UPLOAD DATA</h3>
-                <label className="flex flex-col items-center justify-center cursor-pointer">
-                  <div className={`flex flex-col items-center justify-center pt-5 pb-6 ${
-                    isProcessing ? 'opacity-50' : 'opacity-100'
-                  }`}>
-                    {fileUploaded ? (
-                      <Check className="mx-auto text-green-400 mb-2" size={24} />
-                    ) : error ? (
-                      <X className="mx-auto text-red-400 mb-2" size={24} />
-                    ) : (
-                      <FileInput className="mx-auto text-indigo-400 mb-2" size={24} />
-                    )}
-                    <p className={`mb-2 text-xs tracking-wider ${
-                      fileUploaded ? 'text-green-400' : 
-                      error ? 'text-red-400' : 
-                      'text-indigo-400/50'
-                    }`}>
-                      {fileUploaded ? 'FILE UPLOADED SUCCESSFULLY' : 
-                       error ? error : 'CLICK TO UPLOAD'}
-                    </p>
-                    <p className="text-[8px] text-indigo-400/30">
-                      {fileUploaded && file ? file.name : 'XLSX, CSV (MAX. 5MB)'}
-                    </p>
-                  </div>
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    accept=".xlsx,.csv"
-                    onChange={handleFileUpload}
-                    disabled={isProcessing}
-                  />
-                </label>
-                {isProcessing && (
-                  <div className="mt-3 flex items-center justify-center space-x-2">
-                    <div className="h-2 w-2 bg-indigo-400 rounded-full animate-pulse"></div>
-                    <div className="h-2 w-2 bg-indigo-400 rounded-full animate-pulse delay-100"></div>
-                    <div className="h-2 w-2 bg-indigo-400 rounded-full animate-pulse delay-200"></div>
-                    <span className="text-xs text-indigo-400/50">PROCESSING...</span>
-                  </div>
-                )}
-              </div>
-
-              {fileUploaded && (
-                <div className="border border-indigo-400/20 rounded-sm bg-gray-900/30 flex-1 overflow-auto">
-                  <div className="p-2 border-b border-indigo-400/10 flex justify-between items-center">
-                    <p className="text-xs text-indigo-400/80 tracking-wider">DATA PREVIEW</p>
-                  </div>
-                  <div className="p-2 overflow-auto">
-                    <table className="w-full text-xs text-indigo-100">
-                      <thead>
-                        <tr className="border-b border-indigo-400/10">
-                          <th className="p-2 text-left">COLUMN 1</th>
-                          <th className="p-2 text-left">COLUMN 2</th>
-                          <th className="p-2 text-left">COLUMN 3</th>
-                        </tr>
-                      </thead>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Statistics Tab */}
-          {activeTab === 'stats' && (
-            <div className="flex-1 flex flex-col p-4 overflow-auto">
-              <div className="border border-indigo-400/20 rounded-sm bg-gray-900/30 p-4 mb-4">
-                <h3 className="text-xs text-indigo-400 mb-3 tracking-wider">DATA STATISTICS</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {Object.entries(stats).map(([key, value]) => (
-                    <div key={key} className="border border-indigo-400/20 p-2 rounded-sm">
-                      <p className="text-[10px] text-indigo-400/50 tracking-wider">{key.toUpperCase()}</p>
-                      <p className="text-sm text-indigo-100">{value.toFixed(2)}</p>
-                    </div>
+                  <option value="">Select X Axis</option>
+                  {columns.map((col) => (
+                    <option key={col} value={col}>{col}</option>
                   ))}
-                </div>
+                </select>
+                <select
+                  className="text-xs bg-gray-800 border border-indigo-400/30 text-indigo-100 rounded-sm px-2 py-1"
+                  value={yAxis}
+                  onChange={(e) => setYAxis(e.target.value)}
+                >
+                  <option value="">Select Y Axis</option>
+                  {columns.map((col) => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+              </div>
+              <div id="chart-wrapper" className="flex-1 min-h-[300px] max-h-[500px] border border-indigo-400/20 rounded-sm bg-gray-900/30 relative overflow-hidden">
+                {renderChart()}
+              </div>
+              <div className="flex justify-between mt-4">
+                <ExportButtons />
+                <button
+                  onClick={resetSession}
+                  className="text-xs px-2 py-1 border border-red-500 text-red-400 rounded-sm hover:bg-red-500/10 transition"
+                >
+                  Clear Session
+                </button>
               </div>
             </div>
           )}
-        </div>
+
+          {activeTab === "data" && (
+            <div className="p-4">
+              <label className="block text-sm font-medium text-white mb-2">
+                Upload Excel File (.xlsx)
+              </label>
+              <input
+                type="file"
+                accept=".xlsx"
+                onChange={handleFileUpload}
+                className="text-xs bg-gray-800 text-indigo-100 border border-indigo-400/30 rounded-sm px-2 py-1"
+              />
+              {isProcessing && <p className="text-xs text-indigo-400/60 mt-2">Processing file...</p>}
+              {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+              {fileUploaded && <p className="text-xs text-green-400 mt-2">File uploaded and parsed successfully!</p>}
+            </div>
+          )}
+        </section>
       </main>
-
-      <footer className="pb-2 px-4 text-center text-indigo-400/50 text-[8px] tracking-wider border-t border-indigo-400/10">
-        <p>©{new Date().getFullYear()} XLYZER</p>
-      </footer>
-
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-        .font-press-start {
-          font-family: 'Press Start 2P', cursive;
-        }
-        html, body, #__next {
-          margin: 0;
-          padding: 0;
-          overflow: hidden;
-          height: 100%;
-        }
-      `}</style>
     </div>
   );
 }
