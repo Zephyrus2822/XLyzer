@@ -165,6 +165,8 @@ export default function Dashboard() {
   };
 
   const saveToHistory = async () => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+
     const localHistory = JSON.parse(
       sessionStorage.getItem("chartHistory") || "[]"
     );
@@ -182,17 +184,29 @@ export default function Dashboard() {
 
     // Now push to MongoDB
     try {
-      await axios.post("http://localhost:5001/api/chart/save", {
-        userId: user._id,
-        filename: newEntry.filename,
-        xAxis,
-        yAxis,
-        graphType,
-        sheetData,
+      const res = await fetch("http://localhost:5001/api/chart/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user._id, // ✅ must match MongoDB ObjectId of user
+          filename: newEntry.filename,
+          xAxis,
+          yAxis,
+          graphType,
+          sheetData,
+        }),
       });
-      console.log("Chart saved to DB");
+
+      const data = await res.json();
+      console.log("📤 Chart POST response:", data);
+
+      if (!res.ok) {
+        throw new Error(data.message || "Unknown error");
+      }
     } catch (err) {
-      console.error("Error saving chart to DB:", err);
+      console.error("❌ Error saving chart to DB:", err.message);
     }
   };
 
