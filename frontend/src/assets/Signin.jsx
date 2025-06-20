@@ -1,36 +1,45 @@
-import React from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import axios from 'axios'
-import { useState } from 'react'
+import React from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { useState } from "react";
 
 const Signin = () => {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const navigate = useNavigate()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError('')
-    
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
     try {
-      const result = await axios.post("http://localhost:5001/api/auth/signin", { email, password })
-      
-      if (result.data.msg === "Success") {
-        navigate("/dashboard")
+      const { data } = await axios.post(
+        "http://localhost:5001/api/auth/signin",
+        {
+          email,
+          password,
+        }
+      );
+
+      if (data.msg === "Success") {
+        localStorage.setItem("user", JSON.stringify(data.user));
+        navigate("/dashboard");
       } else {
-        setError("Please check your credentials and try again.");
-        console.warn("Login failed:", result.data.msg);
+        setError("Invalid credentials. Try again.");
+        console.warn("Login failed:", data.msg);
       }
     } catch (err) {
-      console.error("Login error:", err)
-      setError(err.response?.data?.message || "Login failed. Please try again.")
+      console.error("Login error:", err);
+      setError(
+        err.response?.data?.message || "Login failed. Please try again."
+      );
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div>
@@ -53,9 +62,12 @@ const Signin = () => {
                 {error}
               </div>
             )}
-            
+
             <div>
-              <label htmlFor="email" className="block text-sm/6 font-medium text-white">
+              <label
+                htmlFor="email"
+                className="block text-sm/6 font-medium text-white"
+              >
                 Email address
               </label>
               <div className="mt-2">
@@ -74,11 +86,17 @@ const Signin = () => {
 
             <div>
               <div className="flex items-center justify-between">
-                <label htmlFor="password" className="block text-sm/6 font-medium text-white">
+                <label
+                  htmlFor="password"
+                  className="block text-sm/6 font-medium text-white"
+                >
                   Password
                 </label>
                 <div className="text-sm">
-                  <Link to={'/forgot'} className="font-semibold text-indigo-700 hover:text-indigo-800">
+                  <Link
+                    to={"/forgot"}
+                    className="font-semibold text-indigo-700 hover:text-indigo-800"
+                  >
                     Forgot password?
                   </Link>
                 </div>
@@ -101,27 +119,34 @@ const Signin = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className={`flex w-full justify-center rounded-md bg-indigo-700 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                className={`flex w-full justify-center rounded-md bg-indigo-700 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${
+                  isLoading ? "opacity-70 cursor-not-allowed" : ""
+                }`}
               >
-                {isLoading ? 'Signing in...' : 'Sign in'}
+                {isLoading ? "Signing in..." : "Sign in"}
               </button>
             </div>
           </form>
 
           <p className="mt-10 text-center text-sm/6 text-gray-800">
-            Not a member?{' '}
-            <Link to={'/signup'} className="font-semibold text-indigo-800 hover:text-indigo-900">
+            Not a member?{" "}
+            <Link
+              to={"/signup"}
+              className="font-semibold text-indigo-800 hover:text-indigo-900"
+            >
               Sign up
             </Link>
           </p>
         </div>
       </div>
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
         .font-press-start {
-          font-family: 'Press Start 2P', cursive;
+          font-family: "Press Start 2P", cursive;
         }
-        html, body, #__next {
+        html,
+        body,
+        #__next {
           margin: 0;
           padding: 0;
           overflow: hidden;
@@ -129,7 +154,7 @@ const Signin = () => {
         }
       `}</style>
     </div>
-  )
-}
+  );
+};
 
-export default Signin
+export default Signin;

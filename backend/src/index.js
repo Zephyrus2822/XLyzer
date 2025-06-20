@@ -5,6 +5,8 @@ require('dotenv').config();
 
 const connectDB = require('./config/mongoconfig');
 const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/chart');
+// Connect to MongoDB
 
 connectDB();
 
@@ -23,8 +25,10 @@ app.get('/', (req, res) => {
 
 // ✅ Mount auth routes
 app.use('/api/auth', authRoutes);
+app.use("/api/chart", require("./routes/chart"));
+
 
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
-  console.log(`✅ Server is running on http://127.0.0.1:${PORT}`);
+  console.log(`✅ Server is running on http://127.0.0.1:${PORT} and connected to MongoDB`);
 });

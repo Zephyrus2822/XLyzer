@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   LineChart,
@@ -40,9 +42,13 @@ const GRAPH_TYPES = {
 };
 
 export default function Dashboard() {
-  const [fileUploaded, setFileUploaded] = useState(() => sessionStorage.getItem("fileUploaded") === "true");
+  const [fileUploaded, setFileUploaded] = useState(
+    () => sessionStorage.getItem("fileUploaded") === "true"
+  );
   const [activeTab, setActiveTab] = useState("visualize");
-  const [graphType, setGraphType] = useState(() => sessionStorage.getItem("graphType") || "line");
+  const [graphType, setGraphType] = useState(
+    () => sessionStorage.getItem("graphType") || "line"
+  );
   const [isProcessing, setIsProcessing] = useState(false);
   const [file, setFile] = useState(null);
   const [error, setError] = useState(null);
@@ -54,16 +60,47 @@ export default function Dashboard() {
     const saved = sessionStorage.getItem("columns");
     return saved ? JSON.parse(saved) : [];
   });
-  const [xAxis, setXAxis] = useState(() => sessionStorage.getItem("xAxis") || "");
-  const [yAxis, setYAxis] = useState(() => sessionStorage.getItem("yAxis") || "");
+  const [xAxis, setXAxis] = useState(
+    () => sessionStorage.getItem("xAxis") || ""
+  );
+  const [yAxis, setYAxis] = useState(
+    () => sessionStorage.getItem("yAxis") || ""
+  );
+
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user") || "{}"); // Must contain `_id`
 
   // Sync to sessionStorage
-  useEffect(() => sessionStorage.setItem("sheetData", JSON.stringify(sheetData)), [sheetData]);
-  useEffect(() => sessionStorage.setItem("columns", JSON.stringify(columns)), [columns]);
+  useEffect(
+    () => sessionStorage.setItem("sheetData", JSON.stringify(sheetData)),
+    [sheetData]
+  );
+  useEffect(
+    () => sessionStorage.setItem("columns", JSON.stringify(columns)),
+    [columns]
+  );
   useEffect(() => sessionStorage.setItem("xAxis", xAxis), [xAxis]);
   useEffect(() => sessionStorage.setItem("yAxis", yAxis), [yAxis]);
   useEffect(() => sessionStorage.setItem("graphType", graphType), [graphType]);
-  useEffect(() => sessionStorage.setItem("fileUploaded", fileUploaded), [fileUploaded]);
+  useEffect(
+    () => sessionStorage.setItem("fileUploaded", fileUploaded),
+    [fileUploaded]
+  );
+  useEffect(() => {
+    if (fileUploaded && xAxis && yAxis && sheetData.length > 0 && user?._id) {
+      const lastSave = sessionStorage.getItem("lastChartSaved");
+      const currentSignature = `${xAxis}_${yAxis}_${graphType}_${file?.name}`;
+
+      if (lastSave !== currentSignature) {
+        saveToHistory(); // Call your MongoDB+local function
+        sessionStorage.setItem("lastChartSaved", currentSignature);
+        console.log(
+          "Triggering saveToHistory() with signature:",
+          currentSignature
+        );
+      }
+    }
+  }, [fileUploaded, xAxis, yAxis, graphType, sheetData, file, user._id]);
 
   const handleFileUpload = (e) => {
     const selected = e.target.files[0];
@@ -95,14 +132,68 @@ export default function Dashboard() {
     const chartContainer = document.getElementById("chart-wrapper");
     if (!chartContainer) return;
 
-    const { toPng, toPdf } = await import("html-to-image");
-    const blobFn = format === "png" ? toPng : toPdf;
-    blobFn(chartContainer).then((dataUrl) => {
-      const link = document.createElement("a");
-      link.download = `chart.${format}`;
-      link.href = dataUrl;
-      link.click();
-    });
+    const { toPng } = await import("html-to-image");
+
+    const options = {
+      cacheBust: true,
+      skipFonts: true,
+      style: {
+        fontFamily: "sans-serif",
+      },
+    };
+
+    try {
+      const dataUrl = await toPng(chartContainer, options);
+
+      if (format === "png") {
+        const link = document.createElement("a");
+        link.download = `chart.png`;
+        link.href = dataUrl;
+        link.click();
+      } else if (format === "pdf") {
+        const { jsPDF } = await import("jspdf");
+        const pdf = new jsPDF();
+        const imgProps = pdf.getImageProperties(dataUrl);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        pdf.addImage(dataUrl, "PNG", 0, 0, pdfWidth, pdfHeight);
+        pdf.save("chart.pdf");
+      }
+    } catch (err) {
+      console.error("Error exporting chart:", err);
+    }
+  };
+
+  const saveToHistory = async () => {
+    const localHistory = JSON.parse(
+      sessionStorage.getItem("chartHistory") || "[]"
+    );
+    const newEntry = {
+      timestamp: Date.now(),
+      graphType,
+      xAxis,
+      yAxis,
+      sheetData,
+      filename: file?.name || "uploaded.xlsx",
+    };
+
+    localHistory.unshift(newEntry);
+    sessionStorage.setItem("chartHistory", JSON.stringify(localHistory));
+
+    // Now push to MongoDB
+    try {
+      await axios.post("http://localhost:5001/api/chart/save", {
+        userId: user._id,
+        filename: newEntry.filename,
+        xAxis,
+        yAxis,
+        graphType,
+        sheetData,
+      });
+      console.log("Chart saved to DB");
+    } catch (err) {
+      console.error("Error saving chart to DB:", err);
+    }
   };
 
   const ExportButtons = () => (
@@ -194,7 +285,9 @@ export default function Dashboard() {
         <div className="text-xl font-bold text-indigo-400 tracking-wider">
           <a href="/">XLYZER</a>
         </div>
-        <div className="text-xs text-indigo-400/50 tracking-wider">DASHBOARD</div>
+        <div className="text-xs text-indigo-400/50 tracking-wider">
+          DASHBOARD
+        </div>
       </header>
       <main className="flex-1 flex overflow-hidden">
         <aside className="w-16 border-r border-indigo-400/10 flex flex-col items-center py-4 space-y-6">
@@ -244,7 +337,9 @@ export default function Dashboard() {
                 >
                   <option value="">Select X Axis</option>
                   {columns.map((col) => (
-                    <option key={col} value={col}>{col}</option>
+                    <option key={col} value={col}>
+                      {col}
+                    </option>
                   ))}
                 </select>
                 <select
@@ -254,11 +349,16 @@ export default function Dashboard() {
                 >
                   <option value="">Select Y Axis</option>
                   {columns.map((col) => (
-                    <option key={col} value={col}>{col}</option>
+                    <option key={col} value={col}>
+                      {col}
+                    </option>
                   ))}
                 </select>
               </div>
-              <div id="chart-wrapper" className="flex-1 min-h-[300px] max-h-[500px] border border-indigo-400/20 rounded-sm bg-gray-900/30 relative overflow-hidden">
+              <div
+                id="chart-wrapper"
+                className="flex-1 min-h-[300px] max-h-[500px] border border-indigo-400/20 rounded-sm bg-gray-900/30 relative overflow-hidden"
+              >
                 {renderChart()}
               </div>
               <div className="flex justify-between mt-4">
@@ -268,6 +368,12 @@ export default function Dashboard() {
                   className="text-xs px-2 py-1 border border-red-500 text-red-400 rounded-sm hover:bg-red-500/10 transition"
                 >
                   Clear Session
+                </button>
+                <button
+                  onClick={() => navigate("/history")}
+                  className="text-xs px-2 py-1 bg-indigo-500 text-white rounded"
+                >
+                  View History
                 </button>
               </div>
             </div>
@@ -284,9 +390,17 @@ export default function Dashboard() {
                 onChange={handleFileUpload}
                 className="text-xs bg-gray-800 text-indigo-100 border border-indigo-400/30 rounded-sm px-2 py-1"
               />
-              {isProcessing && <p className="text-xs text-indigo-400/60 mt-2">Processing file...</p>}
+              {isProcessing && (
+                <p className="text-xs text-indigo-400/60 mt-2">
+                  Processing file...
+                </p>
+              )}
               {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
-              {fileUploaded && <p className="text-xs text-green-400 mt-2">File uploaded and parsed successfully!</p>}
+              {fileUploaded && (
+                <p className="text-xs text-green-400 mt-2">
+                  File uploaded and parsed successfully!
+                </p>
+              )}
             </div>
           )}
         </section>
