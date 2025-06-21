@@ -37,8 +37,8 @@ jobs:
 
       - name: ✅ Run Backend Tests (if any)
         run: |
-          docker-compose run -e MONGO_URI=${{ secrets.MONGO_URI }} backend npm test
+          docker compose run -e MONGO_URI=${{ secrets.MONGO_URI }} backend npm test
 
       - name: ✅ Run Frontend Tests (if any)
         run: |
-          docker-compose run frontend npm test
+          docker compose run frontend npm test
