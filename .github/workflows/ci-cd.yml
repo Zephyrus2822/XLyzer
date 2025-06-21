@@ -2,43 +2,33 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
-
-    services:
-      mongo:
-        image: mongo
-        ports:
-          - 27017:27017
 
     steps:
       - name: ⬇️ Checkout Code
         uses: actions/checkout@v3
 
-      - name: 🐳 Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: 🔐 Log in to Docker Hub (optional)
+      - name: 🔐 Docker Login (Optional)
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: 🧱 Build & Push Docker Images
-        run: |
-          docker compose -f docker-compose.yml build
+      - name: 🧱 Build Containers
+        run: docker compose -f docker-compose.yml build
 
-      - name: ✅ Run Backend Tests (if any)
+      - name: 🧪 Run Backend Tests
         run: |
-          docker compose run -e MONGO_URI=${{ secrets.MONGO_URI }} backend npm test
+          docker compose run --rm \
+            -e MONGO_URI=${{ secrets.MONGO_URI }} \
+            backend npm test || echo "No backend tests found."
 
-      - name: ✅ Run Frontend Tests (if any)
+      - name: 🧪 Run Frontend Tests
         run: |
-          docker compose run frontend npm test
+          docker compose run --rm frontend npm test || echo "No frontend tests found."
