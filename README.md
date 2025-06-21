@@ -11,6 +11,10 @@ Step 3: for backend:
             First, create the .env file inside the directory by renaming the .en.example file and putting correct values
             npm start
             You should server running at localhost:5001 and MongoDB connected.
+
+or, you can use Docker Compose
+Simply run docker compose -f docker-compose.yml up -d 
+It should start everything and you should get a MongdDB connected message!
 ```
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
