@@ -23,6 +23,9 @@ jobs:
       - name: 🧱 Build Containers
         run: docker compose -f docker-compose.yml build
 
+      - name: Start containers
+        run: docker compose up -d
+
       - name: 🧪 Run Backend Tests
         run: |
           docker compose run --rm \

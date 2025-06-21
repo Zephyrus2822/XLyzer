@@ -2,7 +2,7 @@ version: "3.9"
 services:
   backend:
     build: ./backend
-    image: zephyr2/backend-xlyzer
+    image: zephyrus2/backend-xlyzer
     ports:
       - "5001:5001"
     environment:
@@ -12,7 +12,7 @@ services:
 
   frontend:
     build: ./frontend
-    image: zephyr2/frontend-xlyzer
+    image: zephyrus2/frontend-xlyzer
     ports:
       - "5173:80"
     depends_on:
