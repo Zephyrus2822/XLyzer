@@ -1,0 +1,44 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo
+        ports:
+          - 27017:27017
+
+    steps:
+      - name: ⬇️ Checkout Code
+        uses: actions/checkout@v3
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: 🔐 Log in to Docker Hub (optional)
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: 🧱 Build & Push Docker Images
+        run: |
+          docker-compose -f docker-compose.yml build
+
+      - name: ✅ Run Backend Tests (if any)
+        run: |
+          docker-compose run -e MONGO_URI=${{ secrets.MONGO_URI }} backend npm test
+
+      - name: ✅ Run Frontend Tests (if any)
+        run: |
+          docker-compose run frontend npm test
