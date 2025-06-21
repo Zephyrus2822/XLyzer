@@ -1,14 +1,39 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { useState } from "react";
+import { motion } from "framer-motion";
+import { Zap, ArrowRight, Mail, Lock } from "lucide-react";
+
+// Animation variants
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+};
 
 const Signin = () => {
+  const navigate = useNavigate();
+
+  const [user, setUser] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+
+  // Load user from localStorage
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("user"));
+    if (storedUser) setUser(storedUser);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,23 +41,19 @@ const Signin = () => {
     setError("");
 
     try {
-      const { data } = await axios.post(
-        "http://localhost:5001/api/auth/signin",
-        {
-          email,
-          password,
-        }
-      );
+      const result = await axios.post("http://localhost:5001/api/auth/signin", {
+        email,
+        password,
+      });
 
-      if (data.msg === "Success") {
-        localStorage.setItem("user", JSON.stringify(data.user));
+      if (result.data.msg === "Success") {
+        localStorage.setItem("user", JSON.stringify(result.data.user));
+        setUser(result.data.user);
         navigate("/dashboard");
       } else {
-        setError("Invalid credentials. Try again.");
-        console.warn("Login failed:", data.msg);
+        setError("Please check your credentials and try again.");
       }
     } catch (err) {
-      console.error("Login error:", err);
       setError(
         err.response?.data?.message || "Login failed. Please try again."
       );
@@ -41,116 +62,229 @@ const Signin = () => {
     }
   };
 
+ const handleLogout = () => {
+  localStorage.removeItem("user");
+  setUser(null); // Update state
+  navigate("/signin");
+};
+
+  useEffect(() => {
+  const storedUser = localStorage.getItem("user");
+  if (storedUser) {
+    try {
+      setUser(JSON.parse(storedUser));
+    } catch (e) {
+      console.error("Failed to parse user from localStorage", e);
+    }
+  }
+}, []);
+
   return (
-    <div>
-      <div className="bg-gradient-to-br from-gray-500 to-indigo-500 mx-auto my-13 p-12 flex flex-col justify-center items-center font-press-start rounded-lg w-fit max-w-full">
-        <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-          <img
-            alt="XLyzer"
-            src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=600"
-            className="mx-auto h-10 w-auto"
-          />
-          <h2 className="mt-10 text-center text-2xl/9 font-press-start font-bold tracking-tight text-white">
-            Sign in to your account
-          </h2>
-        </div>
-
-        <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="text-red-500 text-sm text-center p-2 bg-red-50 rounded-md">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm/6 font-medium text-white"
-              >
-                Email address
-              </label>
-              <div className="mt-2">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  value={email}
-                  autoComplete="email"
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
+    
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-indigo-900 flex flex-col justify-center items-center p-4">
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md bg-indigo-900/20 border border-indigo-400/20 rounded-xl p-8 backdrop-blur-sm"
+      >
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="space-y-6"
+        >
+          {/* Logo/Header */}
+          <motion.div variants={item} className="text-center">
+            <div className="inline-flex items-center justify-center p-3 bg-indigo-400/10 rounded-lg border border-indigo-400/30 mb-4">
+              <Zap className="text-indigo-400" size={24} strokeWidth={2} />
             </div>
+            <h2 className="text-2xl font-bold text-white">
+              {user ? (
+                <>
+                  Welcome, <span className="text-indigo">{user.name}</span>
+                </>
+              ) : (
+                <>
+                  Sign in to <span className="text-indigo-400">XLYZER</span>
+                </>
+              )}
+            </h2>
+            <p className="text-indigo-200 mt-2 text-sm">
+              {user
+                ? "You’re already logged in. Go to your dashboard or sign out."
+                : "Enter your credentials to access your dashboard"}
+            </p>
+          </motion.div>
 
-            <div>
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="password"
-                  className="block text-sm/6 font-medium text-white"
-                >
-                  Password
-                </label>
-                <div className="text-sm">
-                  <Link
-                    to={"/forgot"}
-                    className="font-semibold text-indigo-700 hover:text-indigo-800"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-              </div>
-              <div className="mt-2">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  value={password}
-                  autoComplete="current-password"
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`flex w-full justify-center rounded-md bg-indigo-700 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${
-                  isLoading ? "opacity-70 cursor-not-allowed" : ""
-                }`}
-              >
-                {isLoading ? "Signing in..." : "Sign in"}
-              </button>
-            </div>
-          </form>
-
-          <p className="mt-10 text-center text-sm/6 text-gray-800">
-            Not a member?{" "}
-            <Link
-              to={"/signup"}
-              className="font-semibold text-indigo-800 hover:text-indigo-900"
+          {/* Error Message */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 bg-red-900/30 border border-red-400/30 text-red-200 text-sm rounded-lg"
             >
-              Sign up
-            </Link>
-          </p>
-        </div>
-      </div>
+              {error}
+            </motion.div>
+          )}
+
+          {/* Conditional Content */}
+          {user ? (
+            <motion.div
+              variants={item}
+              className="text-center flex items-center p-2 gap-7 justify-center"
+            >
+              <button
+                onClick={handleLogout}
+                className="mt-4 inline-block px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition"
+              >
+                Sign Out
+              </button>
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="mt-4 inline-block px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition"
+              >
+                Dashboard
+              </button>
+            </motion.div>
+          ) : (
+            <>
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <motion.div variants={item}>
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-indigo-200 mb-2"
+                  >
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-4 w-4 text-indigo-400" />
+                    </div>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      required
+                      value={email}
+                      autoComplete="email"
+                      className="block w-full pl-10 bg-indigo-900/30 border border-indigo-400/30 rounded-lg py-2.5 px-4 text-white placeholder-indigo-400/70 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                    />
+                  </div>
+                </motion.div>
+
+                <motion.div variants={item}>
+                  <div className="flex items-center justify-between mb-2">
+                    <label
+                      htmlFor="password"
+                      className="block text-sm font-medium text-indigo-200"
+                    >
+                      Password
+                    </label>
+                    <Link
+                      to="/forgot"
+                      className="text-xs text-indigo-400 hover:text-indigo-300"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-4 w-4 text-indigo-400" />
+                    </div>
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      required
+                      value={password}
+                      autoComplete="current-password"
+                      className="block w-full pl-10 bg-indigo-900/30 border border-indigo-400/30 rounded-lg py-2.5 px-4 text-white placeholder-indigo-400/70 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </motion.div>
+
+                <motion.div variants={item}>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className={`w-full flex justify-center items-center py-2.5 px-4 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-medium transition-all duration-200 ${
+                      isLoading ? "opacity-70 cursor-not-allowed" : ""
+                    }`}
+                    whileHover={!isLoading ? { scale: 1.02 } : {}}
+                    whileTap={!isLoading ? { scale: 0.98 } : {}}
+                  >
+                    {isLoading ? (
+                      <span className="flex items-center">
+                        <svg
+                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Signing in...
+                      </span>
+                    ) : (
+                      <>
+                        Sign In <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </motion.div>
+              </form>
+
+              <motion.div
+                variants={item}
+                className="text-center text-sm text-indigo-300"
+              >
+                Don’t have an account?{" "}
+                <Link
+                  to="/signup"
+                  className="font-medium text-indigo-400 hover:text-indigo-300"
+                >
+                  Sign up
+                </Link>
+              </motion.div>
+            </>
+          )}
+        </motion.div>
+      </motion.div>
+
+      {/* Global Styles */}
       <style jsx global>{`
-        @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
-        .font-press-start {
-          font-family: "Press Start 2P", cursive;
-        }
+        @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
+
         html,
         body,
         #__next {
           margin: 0;
           padding: 0;
-          overflow: hidden;
           height: 100%;
+        }
+        body {
+          font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+            "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+          font-weight: 400;
+          line-height: 1.6;
         }
       `}</style>
     </div>
