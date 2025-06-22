@@ -20,6 +20,16 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Build and push images
+        run: |
+          docker build -t zephyrus2/backend-xlyzer ./backend
+          docker push zephyrus2/backend-xlyzer
+
+      - name: Build and push images
+        run: |
+          docker build -t zephyrus2/frontend-xlyzer ./frontend
+          docker push zephyrus2/frontend-xlyzer
+          
       - name: 🧱 Build Containers
         run: docker compose -f docker-compose.yml build
 
