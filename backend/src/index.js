@@ -31,7 +31,7 @@ app.use('/api/auth', authRoutes);      // Auth-related endpoints
 app.use('/api/chart', chartRoutes);    // Chart save/fetch endpoints
 
 // 🔊 Start server
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://127.0.0.1:${PORT}`);
 });
