@@ -6,6 +6,7 @@ import Landing from "./assets/Landing";
 import Dashboard from "./assets/Dashboard";
 import History from "./assets/History";
 import ErrorBoundary from "./assets/ErrorBoundary";
+import Chatbot from "./assets/Chatbot";
 import "./App.css";
 import "./index.css";
 import Admin from "./assets/Admin";
@@ -20,6 +21,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/history" element={<History />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/chatbot" element={<Chatbot />} />
       </Routes>
     </ErrorBoundary>
   );

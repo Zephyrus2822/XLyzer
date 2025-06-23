@@ -701,6 +701,7 @@ export default function Dashboard() {
           )}
         </main>
       </div>
+      <Chatbot />
     </div>
   );
 }
