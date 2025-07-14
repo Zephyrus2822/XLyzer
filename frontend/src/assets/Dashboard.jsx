@@ -58,7 +58,7 @@ export default function Dashboard() {
   const [fileUploaded, setFileUploaded] = useState(
     () => sessionStorage.getItem("fileUploaded") === "true"
   );
-  const [activeTab, setActiveTab] = useState("visualize");
+  const [activeTab, setActiveTab] = useState("data");
   const [graphType, setGraphType] = useState(
     () => sessionStorage.getItem("graphType") || "line"
   );
